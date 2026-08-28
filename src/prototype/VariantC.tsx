@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Terminal, Radio, Code2 } from "lucide-react";
 import { ProviderId, UsageSnapshot } from "../types";
 import { PROVIDER_METADATA } from "./mockData";
+import { ClaudeLogo, OpenAILogo, AntigravityLogo, GeminiLogo } from "./icons";
 import { formatResetCountdown } from "../models/normalizers";
 
 interface VariantCProps {
@@ -10,7 +11,20 @@ interface VariantCProps {
 
 export const VariantC: React.FC<VariantCProps> = ({ snapshots }) => {
   const [showJsonInspector, setShowJsonInspector] = useState(false);
-  const [selectedProvider, setSelectedProvider] = useState<ProviderId>("antigravity");
+  const [selectedProvider, setSelectedProvider] = useState<ProviderId>("claude");
+
+  const getBrandLogo = (provider: string, className = "w-3.5 h-3.5") => {
+    switch (provider) {
+      case "claude":
+        return <ClaudeLogo className={className} />;
+      case "codex":
+        return <OpenAILogo className={className} />;
+      case "antigravity":
+        return <AntigravityLogo className={className} />;
+      default:
+        return <GeminiLogo className={className} />;
+    }
+  };
 
   return (
     <div className="relative w-full h-full min-h-[580px] flex items-center justify-end select-none pointer-events-none p-2">
@@ -49,7 +63,6 @@ export const VariantC: React.FC<VariantCProps> = ({ snapshots }) => {
           minHeight: "420px",
         }}
       >
-        {/* Blade Top Telemetry Header */}
         <div className="flex flex-col items-center text-center mt-2 border-b border-cyan-900/50 pb-2 w-full">
           <div className="flex items-center gap-1 text-[9px] font-mono font-bold text-cyan-400 uppercase tracking-wider">
             <Radio className="w-2.5 h-2.5 text-cyan-400 animate-pulse" />
@@ -58,11 +71,10 @@ export const VariantC: React.FC<VariantCProps> = ({ snapshots }) => {
           <span className="text-[8px] font-mono text-slate-500 truncate">127.0.0.1:RPC</span>
         </div>
 
-        {/* Provider Segmented Gauges */}
         <div className="flex flex-col gap-3 w-full items-center">
-          {Object.keys(snapshots).map((pId) => {
-            const snap = snapshots[pId];
-            const meta = PROVIDER_METADATA[pId] || { name: pId, shortName: pId.slice(0, 3) };
+          {["claude", "codex", "antigravity"].map((pId) => {
+            const snap = snapshots[pId] || { sessionUsedPercent: 50 };
+            const meta = PROVIDER_METADATA[pId] || { name: pId, shortName: pId.slice(0, 3), brandColor: "#38bdf8" };
             const isSelected = selectedProvider === pId;
 
             return (
@@ -77,21 +89,15 @@ export const VariantC: React.FC<VariantCProps> = ({ snapshots }) => {
                 }`}
               >
                 <div className="flex items-center justify-between w-full text-[9px] font-bold text-slate-300">
-                  <span className="text-cyan-300">[{meta.shortName}]</span>
-                  <span
-                    className={
-                      snap.sessionUsedPercent >= 90
-                        ? "text-rose-400"
-                        : snap.sessionUsedPercent >= 75
-                        ? "text-amber-400"
-                        : "text-emerald-400"
-                    }
-                  >
+                  <div className="flex items-center gap-1 text-cyan-300">
+                    {getBrandLogo(pId, "w-3 h-3")}
+                    <span>{meta.shortName}</span>
+                  </div>
+                  <span className="text-white font-semibold">
                     {snap.sessionUsedPercent}%
                   </span>
                 </div>
 
-                {/* Cyber Segmented Bar Gauge */}
                 <div className="w-full grid grid-cols-10 gap-0.5 mt-1">
                   {Array.from({ length: 10 }).map((_, i) => {
                     const threshold = (i + 1) * 10;
@@ -100,20 +106,13 @@ export const VariantC: React.FC<VariantCProps> = ({ snapshots }) => {
                       <div
                         key={i}
                         className={`h-2 rounded-none transition-colors ${
-                          filled
-                            ? snap.sessionUsedPercent >= 90
-                              ? "bg-rose-500"
-                              : snap.sessionUsedPercent >= 75
-                              ? "bg-amber-400"
-                              : "bg-cyan-400"
-                            : "bg-slate-800/80"
+                          filled ? "bg-cyan-400" : "bg-slate-800/80"
                         }`}
                       />
                     );
                   })}
                 </div>
 
-                {/* Reset Clock */}
                 <span className="text-[8px] text-slate-400 mt-1">
                   ⏱ {formatResetCountdown(snap.sessionResetTime)}
                 </span>
@@ -122,7 +121,6 @@ export const VariantC: React.FC<VariantCProps> = ({ snapshots }) => {
           })}
         </div>
 
-        {/* Action button to open diagnostic inspector */}
         <button
           type="button"
           onClick={() => setShowJsonInspector(!showJsonInspector)}

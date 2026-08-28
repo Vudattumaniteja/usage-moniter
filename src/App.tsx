@@ -39,7 +39,7 @@ export const App: React.FC = () => {
   const [snapshots, setSnapshots] = useState<Record<ProviderId, UsageSnapshot>>(
     DEFAULT_PROTOTYPE_SNAPSHOTS
   );
-  const [backgroundMode, setBackgroundMode] = useState<BackgroundMode>("dark");
+  const [backgroundMode, setBackgroundMode] = useState<BackgroundMode>("fluid");
 
   // Read initial variant from URL query param ?variant=
   const [currentVariant, setCurrentVariant] = useState<string>(() => {
@@ -74,13 +74,15 @@ export const App: React.FC = () => {
     switch (backgroundMode) {
       case "transparent":
         return "bg-transparent";
+      case "fluid":
+        return "bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-cyan-400/80 via-[#d97706]/70 to-[#0c4a6e]";
       case "editor":
         return "bg-[#181824] bg-[radial-gradient(#2d3748_1px,transparent_1px)] [background-size:16px_16px]";
       case "wallpaper":
         return "bg-gradient-to-br from-blue-900 via-indigo-950 to-slate-950";
       case "dark":
       default:
-        return "bg-slate-950/80";
+        return "bg-slate-950/90";
     }
   };
 

@@ -17,11 +17,16 @@
 
 GitHub issues tracked via the `gh` CLI. See `docs/agents/issue-tracker.md`.
 
+### Issue authoring
+
+Atomic tickets, 4-section schema, and AFK gating. See `docs/agents/issue-authoring.md`.
+
 ### Triage labels
 
-Canonical 5-role triage vocabulary. See `docs/agents/triage-labels.md`.
+Triage vocabulary and AFK dual-gate rules. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
 Single-context layout at repo root. See `docs/agents/domain.md`.
+
 

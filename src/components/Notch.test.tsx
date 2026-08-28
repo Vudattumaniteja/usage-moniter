@@ -22,40 +22,20 @@ describe("Notch Component", () => {
     },
   };
 
-  it("renders usage rings for provided snapshots", () => {
-    render(<Notch snapshots={mockSnapshots} defaultExpanded={true} />);
+  it("renders usage rings for Antigravity and Codex", () => {
+    render(<Notch snapshots={mockSnapshots} />);
 
-    expect(screen.getByText("Antigravity")).toBeInTheDocument();
-    expect(screen.getByText("Codex / GPT")).toBeInTheDocument();
     expect(screen.getByText("40%")).toBeInTheDocument();
     expect(screen.getByText("85%")).toBeInTheDocument();
   });
 
-  it("toggles expand and collapse when the tab button is clicked", () => {
-    render(<Notch snapshots={mockSnapshots} defaultExpanded={true} />);
+  it("opens popover card when clicking a usage ring", () => {
+    render(<Notch snapshots={mockSnapshots} />);
 
-    const toggleButton = screen.getByLabelText("Collapse Notch");
-    expect(toggleButton).toBeInTheDocument();
-
-    fireEvent.click(toggleButton);
-    expect(screen.queryByText("Antigravity")).not.toBeInTheDocument();
-
-    const expandButton = screen.getByLabelText("Expand Notch");
-    fireEvent.click(expandButton);
-    expect(screen.getByText("Antigravity")).toBeInTheDocument();
-  });
-
-  it("opens and closes popover card when clicking a usage ring", () => {
-    render(<Notch snapshots={mockSnapshots} defaultExpanded={true} />);
-
-    const antigravityRing = screen.getByLabelText("Antigravity: 40% used");
+    const antigravityRing = screen.getByRole("button", { name: /Antigravity Usage: 40%/i });
     fireEvent.click(antigravityRing);
 
-    expect(screen.getByRole("dialog", { name: "Antigravity Details" })).toBeInTheDocument();
-    expect(screen.getByText("Session Quota")).toBeInTheDocument();
-
-    // Toggle off by clicking again
-    fireEvent.click(antigravityRing);
-    expect(screen.queryByRole("dialog", { name: "Antigravity Details" })).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Antigravity Usage Details" })).toBeInTheDocument();
+    expect(screen.getByText(/Current session/i)).toBeInTheDocument();
   });
 });

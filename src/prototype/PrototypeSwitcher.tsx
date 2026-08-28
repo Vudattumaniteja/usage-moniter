@@ -8,7 +8,7 @@ export interface VariantOption {
   description?: string;
 }
 
-export type BackgroundMode = "transparent" | "wallpaper" | "editor" | "dark";
+export type BackgroundMode = "fluid" | "wallpaper" | "editor" | "dark" | "transparent";
 
 interface PrototypeSwitcherProps {
   variants: VariantOption[];
@@ -92,13 +92,14 @@ export const PrototypeSwitcher: React.FC<PrototypeSwitcherProps> = ({
               <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 block mb-1.5">
                 Preview Canvas Backdrop
               </label>
-              <div className="grid grid-cols-4 gap-1.5">
+              <div className="grid grid-cols-3 gap-1.5">
                 {(
                   [
+                    { id: "fluid", label: "Fluid Streaks" },
                     { id: "dark", label: "Studio Dark" },
                     { id: "editor", label: "VS Code" },
                     { id: "wallpaper", label: "Windows 11" },
-                    { id: "transparent", label: "Pure Alpha" },
+                    { id: "transparent", label: "Transparent" },
                   ] as const
                 ).map((b) => (
                   <button

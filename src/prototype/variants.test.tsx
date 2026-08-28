@@ -6,23 +6,22 @@ import { VariantC } from "./VariantC";
 import { DEFAULT_PROTOTYPE_SNAPSHOTS } from "./mockData";
 
 describe("VariantA: Organic Curvature Notch", () => {
-  it("renders SVG curved notch and usage rings for active providers", () => {
+  it("renders SVG curved notch and usage rings for Antigravity and Codex", () => {
     render(<VariantA snapshots={DEFAULT_PROTOTYPE_SNAPSHOTS} />);
 
-    expect(screen.getByText(/Antigravity/i)).toBeInTheDocument();
-    expect(screen.getByText(/Codex/i)).toBeInTheDocument();
-    // Default percentages displayed
+    expect(screen.getByText(/Antigravity Usage/i)).toBeInTheDocument();
     expect(screen.getByText("68%")).toBeInTheDocument();
+    expect(screen.getByText("86%")).toBeInTheDocument();
   });
 
   it("reveals popover card when clicking or hovering a ring", () => {
     render(<VariantA snapshots={DEFAULT_PROTOTYPE_SNAPSHOTS} />);
 
-    const agyButton = screen.getByRole("button", { name: /Antigravity: 68%/i });
-    fireEvent.click(agyButton);
+    const codexButton = screen.getByRole("button", { name: /Codex \/ ChatGPT: 86%/i });
+    fireEvent.click(codexButton);
 
-    expect(screen.getByText(/Google AI Ultra/i)).toBeInTheDocument();
-    expect(screen.getByText(/Weekly quota/i)).toBeInTheDocument();
+    expect(screen.getByText(/Codex Usage/i)).toBeInTheDocument();
+    expect(screen.getByText(/Current session/i)).toBeInTheDocument();
   });
 });
 
@@ -30,8 +29,7 @@ describe("VariantB: Floating Pill Tab", () => {
   it("renders compact edge pill and expands on interaction", () => {
     render(<VariantB snapshots={DEFAULT_PROTOTYPE_SNAPSHOTS} />);
 
-    expect(screen.getByText("AGY")).toBeInTheDocument();
-    expect(screen.getByText("CDX")).toBeInTheDocument();
+    expect(screen.getByTitle(/Antigravity Usage: 68%/i)).toBeInTheDocument();
   });
 
   it("shows unified dashboard flyout when clicking expand", () => {

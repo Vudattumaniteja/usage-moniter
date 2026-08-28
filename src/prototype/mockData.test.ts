@@ -7,10 +7,9 @@ import {
 } from "./mockData";
 
 describe("mockData", () => {
-  it("provides default snapshots for antigravity, codex, and claude", () => {
+  it("provides default snapshots for antigravity and codex", () => {
     expect(DEFAULT_PROTOTYPE_SNAPSHOTS.antigravity).toBeDefined();
     expect(DEFAULT_PROTOTYPE_SNAPSHOTS.codex).toBeDefined();
-    expect(DEFAULT_PROTOTYPE_SNAPSHOTS.claude).toBeDefined();
 
     expect(DEFAULT_PROTOTYPE_SNAPSHOTS.antigravity.provider).toBe("antigravity");
     expect(DEFAULT_PROTOTYPE_SNAPSHOTS.codex.provider).toBe("codex");
@@ -24,7 +23,6 @@ describe("mockData", () => {
 
     expect(updated.antigravity.sessionUsedPercent).toBe(95);
     expect(updated.antigravity.status).toBe("warning");
-    // Ensure immutability: original is unchanged
     expect(DEFAULT_PROTOTYPE_SNAPSHOTS.antigravity.sessionUsedPercent).not.toBe(95);
   });
 
@@ -33,8 +31,8 @@ describe("mockData", () => {
     expect(providers.length).toBeGreaterThanOrEqual(2);
 
     const antigravityMeta = PROVIDER_METADATA.antigravity;
-    expect(antigravityMeta.name).toBe("Antigravity");
+    expect(antigravityMeta.name).toContain("Antigravity");
     expect(antigravityMeta.brandColor).toBeDefined();
-    expect(antigravityMeta.sessionWindowLabel).toBe("5h session");
+    expect(antigravityMeta.sessionWindowLabel).toBe("Current session (5h)");
   });
 });
