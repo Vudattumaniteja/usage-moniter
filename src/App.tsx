@@ -1,0 +1,122 @@
+import React, { useState } from "react";
+import { VariantA } from "./prototype/VariantA";
+import { VariantB } from "./prototype/VariantB";
+import { VariantC } from "./prototype/VariantC";
+import {
+  PrototypeSwitcher,
+  VariantOption,
+  BackgroundMode,
+} from "./prototype/PrototypeSwitcher";
+import {
+  DEFAULT_PROTOTYPE_SNAPSHOTS,
+  updateMockSnapshot,
+} from "./prototype/mockData";
+import { ProviderId, UsageSnapshot } from "./types";
+
+/**
+ * Three variants of the Windows right-edge curved notch overlay,
+ * switchable via `?variant=A|B|C` or the floating bottom switcher.
+ */
+const VARIANTS: VariantOption[] = [
+  {
+    key: "A",
+    name: "Organic Curve Notch",
+    description: "Smooth Bezier edge dock with dual-ring gauges and flyout popovers",
+  },
+  {
+    key: "B",
+    name: "Floating Pill Tab",
+    description: "Ultra-compact edge peek bar with expandable multi-provider HUD",
+  },
+  {
+    key: "C",
+    name: "Cyber Chamfer Blade",
+    description: "Angular telemetry rail with live status inspector & diagnostics",
+  },
+];
+
+export const App: React.FC = () => {
+  const [snapshots, setSnapshots] = useState<Record<ProviderId, UsageSnapshot>>(
+    DEFAULT_PROTOTYPE_SNAPSHOTS
+  );
+  const [backgroundMode, setBackgroundMode] = useState<BackgroundMode>("dark");
+
+  // Read initial variant from URL query param ?variant=
+  const [currentVariant, setCurrentVariant] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const v = params.get("variant");
+      if (v && ["A", "B", "C"].includes(v.toUpperCase())) {
+        return v.toUpperCase();
+      }
+    }
+    return "A";
+  });
+
+  const handleSelectVariant = (key: string) => {
+    const upperKey = key.toUpperCase();
+    setCurrentVariant(upperKey);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("variant", upperKey);
+      window.history.replaceState({}, "", url.toString());
+    }
+  };
+
+  const handleUpdateSnapshot = (
+    provider: ProviderId,
+    updates: Partial<UsageSnapshot>
+  ) => {
+    setSnapshots((prev) => updateMockSnapshot(prev, provider, updates));
+  };
+
+  const getBackgroundStyles = () => {
+    switch (backgroundMode) {
+      case "transparent":
+        return "bg-transparent";
+      case "editor":
+        return "bg-[#181824] bg-[radial-gradient(#2d3748_1px,transparent_1px)] [background-size:16px_16px]";
+      case "wallpaper":
+        return "bg-gradient-to-br from-blue-900 via-indigo-950 to-slate-950";
+      case "dark":
+      default:
+        return "bg-slate-950/80";
+    }
+  };
+
+  return (
+    <div
+      className={`relative w-screen h-screen overflow-hidden transition-colors duration-300 flex items-center justify-end ${getBackgroundStyles()}`}
+    >
+      {/* Visual Canvas context watermark for simulated desktop environments */}
+      {backgroundMode !== "transparent" && (
+        <div className="absolute top-4 left-6 text-slate-500/60 pointer-events-none select-none">
+          <div className="text-xs font-mono font-bold tracking-wider uppercase">
+            Windows Desktop Overlay Simulator
+          </div>
+          <div className="text-[10px] text-slate-600 font-mono">
+            Right Edge Screen Boundary &middot; Tauri Frameless Window
+          </div>
+        </div>
+      )}
+
+      {/* Render active prototype variant */}
+      <main className="w-full h-full flex items-center justify-end">
+        {currentVariant === "A" && <VariantA snapshots={snapshots} />}
+        {currentVariant === "B" && <VariantB snapshots={snapshots} />}
+        {currentVariant === "C" && <VariantC snapshots={snapshots} />}
+      </main>
+
+      {/* Floating Prototype Switcher & State Controls */}
+      <PrototypeSwitcher
+        variants={VARIANTS}
+        current={currentVariant}
+        onSelectVariant={handleSelectVariant}
+        snapshots={snapshots}
+        onUpdateSnapshot={handleUpdateSnapshot}
+        backgroundMode={backgroundMode}
+        onChangeBackground={setBackgroundMode}
+      />
+    </div>
+  );
+};

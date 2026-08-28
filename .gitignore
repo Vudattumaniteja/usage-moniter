@@ -15,6 +15,7 @@ dist/
 build/
 out/
 target/
+src-tauri/target/
 *.egg-info/
 
 # Logs & Agent artifacts

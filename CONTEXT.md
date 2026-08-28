@@ -1,25 +1,24 @@
-# Usage Monitor
+# Domain Context
 
-A persistent Windows desktop overlay displaying real-time quota and session limits for AI providers.
+## Glossary
 
-## Language
+### Notch
+The screen-edge docked overlay window pinned to the edge of the Windows desktop displaying live AI service usage gauges.
 
-**Notch**:
-The edge-docked floating overlay window pinned to the screen border displaying AI provider gauges.
-_Avoid_: Island, sidebar, widget, dock
+### Usage Ring
+The circular progress gauge inside the Notch representing the percentage of session or model quota used for a given provider.
 
-**Provider**:
-An AI development tool or assistant whose usage limits and reset windows are tracked (such as Antigravity or Codex).
-_Avoid_: Engine, model, vendor, backend
+### Popover Card
+The card that expands when hovering or clicking a Usage Ring, showing detailed session consumption, model limits, and reset countdown timers.
 
-**Session Quota**:
-The active rolling window usage limit and remaining time before reset for a Provider.
-_Avoid_: Rate limit, token bucket, hourly limit
+### Provider Adapter
+A backend module responsible for extracting and normalizing session quota, rate limits, and reset timestamps from a specific AI tool or service.
 
-**Usage Gauge**:
-The circular progress ring showing the percentage of current quota consumed by a Provider.
-_Avoid_: Meter, spinner, ring, dial
-
-**Hover Card**:
-The expandable informational card that reveals detailed session and model reset statistics when interacting with a Provider gauge.
-_Avoid_: Tooltip, popover, flyout, modal
+### Usage Snapshot
+The normalized data record for an AI provider, containing:
+- `provider`: Provider identifier (`antigravity`, `codex`, `claude`)
+- `sessionUsedPercent`: Percentage of current session quota used
+- `sessionResetTime`: Timestamp or countdown until the current session limit resets
+- `modelUsedPercent`: Percentage of rolling model limit used (if applicable)
+- `modelResetTime`: Timestamp or countdown until the rolling limit resets
+- `status`: Health status (`ok`, `warning`, `exhausted`, `unauthenticated`, `error`)
