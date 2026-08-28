@@ -3,9 +3,12 @@ import { ProviderId, UsageSnapshot } from "../types";
 import { generateRightEdgeNotchPath } from "../prototype/notchMath";
 import { AntigravityLogo, OpenAILogo } from "../prototype/icons";
 import { formatResetCountdown } from "../models/normalizers";
+import { deriveSnapshotSyncState, SnapshotSyncState } from "../services/cache";
 
 interface NotchProps {
   snapshots: Record<ProviderId, UsageSnapshot>;
+  syncStates?: Record<ProviderId, SnapshotSyncState>;
+  referenceNow?: number;
 }
 
 const PROVIDER_METADATA: Record<string, { name: string; brandColor: string; sessionLabel: string; modelLabel: string }> = {
@@ -23,13 +26,27 @@ const PROVIDER_METADATA: Record<string, { name: string; brandColor: string; sess
   },
 };
 
-export const Notch: React.FC<NotchProps> = ({ snapshots }) => {
+export const Notch: React.FC<NotchProps> = ({ snapshots, syncStates, referenceNow }) => {
   const [activeProvider, setActiveProvider] = useState<ProviderId | null>(null);
   const [hoveredRing, setHoveredRing] = useState<ProviderId | null>(null);
 
   const currentProvider = hoveredRing || activeProvider;
   const currentSnapshot = currentProvider ? snapshots[currentProvider] : null;
   const currentMeta = currentProvider ? PROVIDER_METADATA[currentProvider] : null;
+
+  const getProviderSyncState = (pId: ProviderId, snap?: UsageSnapshot): SnapshotSyncState => {
+    if (syncStates && syncStates[pId] !== undefined) {
+      return syncStates[pId];
+    }
+    if (snap) {
+      return deriveSnapshotSyncState(snap, false, referenceNow);
+    }
+    return { isStale: false, isSyncing: false };
+  };
+
+  const currentSyncState = currentSnapshot
+    ? getProviderSyncState(currentSnapshot.provider, currentSnapshot)
+    : { isStale: false, isSyncing: false };
 
   const totalWidth = 360;
   const totalHeight = 580;
@@ -82,17 +99,40 @@ export const Notch: React.FC<NotchProps> = ({ snapshots }) => {
           />
 
           {/* Header */}
-          <div className="flex items-center gap-2.5 mb-3.5">
-            <div
-              className="w-5 h-5 flex items-center justify-center text-white"
-              style={{ color: currentMeta.brandColor }}
-            >
-              {getBrandLogo(currentSnapshot.provider, "w-4.5 h-4.5")}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2.5">
+              <div
+                className="w-5 h-5 flex items-center justify-center text-white"
+                style={{ color: currentMeta.brandColor }}
+              >
+                {getBrandLogo(currentSnapshot.provider, "w-4.5 h-4.5")}
+              </div>
+              <h4 className="text-sm font-semibold tracking-tight text-white leading-none">
+                {currentMeta.name.split(" ")[0]} Usage
+              </h4>
             </div>
-            <h4 className="text-sm font-semibold tracking-tight text-white leading-none">
-              {currentMeta.name.split(" ")[0]} Usage
-            </h4>
+
+            {currentSnapshot.planType && (
+              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 bg-white/10 rounded text-slate-300 font-semibold">
+                {currentSnapshot.planType}
+              </span>
+            )}
           </div>
+
+          {/* Stale Cache or Syncing Status Banner */}
+          {currentSyncState.isStale && (
+            <div className="text-[10px] text-[#ff9f0a] bg-[#ff9f0a]/10 border border-[#ff9f0a]/30 rounded-md px-2 py-1 mb-3 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#ff9f0a] animate-pulse" />
+              <span>Cached data (stale &gt;15m)</span>
+            </div>
+          )}
+
+          {currentSyncState.isSyncing && (
+            <div className="text-[10px] text-[#38bdf8] bg-[#38bdf8]/10 border border-[#38bdf8]/30 rounded-md px-2 py-1 mb-3 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#38bdf8] animate-ping" />
+              <span>Syncing live data...</span>
+            </div>
+          )}
 
           {/* Session Quota Bar */}
           <div className="space-y-1.5 mb-3.5">
@@ -119,7 +159,7 @@ export const Notch: React.FC<NotchProps> = ({ snapshots }) => {
                 {currentSnapshot.sessionUsedPercent}% Used
               </span>
               <span className="text-[#8e8e93] text-[10px]">
-                Resets in {formatResetCountdown(currentSnapshot.sessionResetTime)}
+                Resets in {formatResetCountdown(currentSnapshot.sessionResetTime, referenceNow)}
               </span>
             </div>
           </div>
@@ -145,7 +185,7 @@ export const Notch: React.FC<NotchProps> = ({ snapshots }) => {
                     {currentSnapshot.modelUsedPercent}% Used
                   </span>
                   <span className="text-[#8e8e93] text-[10px]">
-                    Resets {currentSnapshot.modelResetTime ? formatResetCountdown(currentSnapshot.modelResetTime) : "Weekly"}
+                    Resets {currentSnapshot.modelResetTime ? formatResetCountdown(currentSnapshot.modelResetTime, referenceNow) : "Weekly"}
                   </span>
                 </div>
               </div>
@@ -192,6 +232,7 @@ export const Notch: React.FC<NotchProps> = ({ snapshots }) => {
               name: pId,
               brandColor: "#38bdf8",
             };
+            const syncState = getProviderSyncState(pId, snap);
             const isSelected = currentProvider === pId;
 
             const size = 48;
@@ -210,10 +251,28 @@ export const Notch: React.FC<NotchProps> = ({ snapshots }) => {
                 onMouseEnter={() => setHoveredRing(pId)}
                 onMouseLeave={() => setHoveredRing(null)}
                 aria-label={`${meta.name}: ${snap.sessionUsedPercent}%`}
-                className={`group flex flex-col items-center justify-center transition-transform duration-150 focus:outline-none ${
+                className={`group relative flex flex-col items-center justify-center transition-transform duration-150 focus:outline-none ${
                   isSelected ? "scale-105" : "hover:scale-102 opacity-95 hover:opacity-100"
                 }`}
               >
+                {/* Stale Cache Amber Indicator Dot */}
+                {syncState.isStale && (
+                  <span
+                    data-testid={`stale-dot-${pId}`}
+                    title="Cached data (stale >15m)"
+                    className="absolute -top-0.5 right-0 z-30 w-2.5 h-2.5 rounded-full bg-[#ff9f0a] border-2 border-[#050505] shadow-[0_0_6px_#ff9f0a]"
+                  />
+                )}
+
+                {/* Syncing Pulse Indicator */}
+                {syncState.isSyncing && (
+                  <span
+                    data-testid={`syncing-indicator-${pId}`}
+                    title="Syncing live data..."
+                    className="absolute -top-0.5 right-0 z-30 w-2.5 h-2.5 rounded-full bg-cyan-400 border-2 border-[#050505] shadow-[0_0_6px_#38bdf8] animate-pulse"
+                  />
+                )}
+
                 {/* Circular Gauge */}
                 <div className="relative w-[48px] h-[48px] flex items-center justify-center">
                   <div className="absolute inset-[3px] rounded-full bg-[#1c1c1e] flex items-center justify-center shadow-inner">
