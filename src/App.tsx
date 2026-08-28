@@ -9,9 +9,9 @@ import {
 } from "./prototype/PrototypeSwitcher";
 import {
   DEFAULT_PROTOTYPE_SNAPSHOTS,
-  updateMockSnapshot,
 } from "./prototype/mockData";
 import { ProviderId, UsageSnapshot } from "./types";
+import { useSnapshotCache } from "./hooks/useSnapshotCache";
 
 /**
  * Three variants of the Windows right-edge curved notch overlay,
@@ -36,9 +36,14 @@ const VARIANTS: VariantOption[] = [
 ];
 
 export const App: React.FC = () => {
-  const [snapshots, setSnapshots] = useState<Record<ProviderId, UsageSnapshot>>(
-    DEFAULT_PROTOTYPE_SNAPSHOTS
-  );
+  const {
+    snapshots,
+    syncStates,
+    onLivePollSuccess,
+  } = useSnapshotCache({
+    initialSnapshots: DEFAULT_PROTOTYPE_SNAPSHOTS,
+  });
+
   const [backgroundMode, setBackgroundMode] = useState<BackgroundMode>("fluid");
 
   // Read initial variant from URL query param ?variant=
@@ -67,7 +72,18 @@ export const App: React.FC = () => {
     provider: ProviderId,
     updates: Partial<UsageSnapshot>
   ) => {
-    setSnapshots((prev) => updateMockSnapshot(prev, provider, updates));
+    const current = snapshots[provider] || {
+      provider,
+      sessionUsedPercent: 0,
+      status: "ok",
+    };
+    const merged: UsageSnapshot = {
+      ...current,
+      ...updates,
+      provider,
+    };
+    // Save to disk and update state
+    onLivePollSuccess(merged);
   };
 
   const getBackgroundStyles = () => {
@@ -104,7 +120,9 @@ export const App: React.FC = () => {
 
       {/* Render active prototype variant */}
       <main className="w-full h-full flex items-center justify-end">
-        {currentVariant === "A" && <VariantA snapshots={snapshots} />}
+        {currentVariant === "A" && (
+          <VariantA snapshots={snapshots} syncStates={syncStates} />
+        )}
         {currentVariant === "B" && <VariantB snapshots={snapshots} />}
         {currentVariant === "C" && <VariantC snapshots={snapshots} />}
       </main>
