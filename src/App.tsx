@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { VariantA } from "./prototype/VariantA";
 import { VariantB } from "./prototype/VariantB";
 import { VariantC } from "./prototype/VariantC";
@@ -12,6 +12,7 @@ import {
 } from "./prototype/mockData";
 import { ProviderId, UsageSnapshot } from "./types";
 import { useSnapshotCache } from "./hooks/useSnapshotCache";
+import { antigravityAdapter } from "./services/antigravityAdapter";
 
 /**
  * Three variants of the Windows right-edge curved notch overlay,
@@ -45,6 +46,22 @@ export const App: React.FC = () => {
   });
 
   const [backgroundMode, setBackgroundMode] = useState<BackgroundMode>("fluid");
+
+  // Subscribe to live Antigravity Connect-RPC polling
+  useEffect(() => {
+    const unsubscribe = antigravityAdapter.subscribe((snapshot) => {
+      if (snapshot.status !== "error" || snapshot.sessionUsedPercent > 0) {
+        onLivePollSuccess(snapshot);
+      }
+    });
+
+    antigravityAdapter.startPolling();
+
+    return () => {
+      unsubscribe();
+      antigravityAdapter.stopPolling();
+    };
+  }, [onLivePollSuccess]);
 
   // Read initial variant from URL query param ?variant=
   const [currentVariant, setCurrentVariant] = useState<string>(() => {
@@ -102,7 +119,15 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleVerificationPoll = (providerId: ProviderId) => {
+  const handleVerificationPoll = async (providerId: ProviderId) => {
+    if (providerId === "antigravity") {
+      const refreshed = await antigravityAdapter.refreshNow();
+      if (refreshed.status !== "error" || refreshed.sessionUsedPercent > 0) {
+        onLivePollSuccess(refreshed);
+        return;
+      }
+    }
+
     const current = snapshots[providerId];
     if (current) {
       const refreshed: UsageSnapshot = {

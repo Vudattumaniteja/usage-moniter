@@ -80,7 +80,114 @@ describe("formatResetCountdown", () => {
 describe("normalizeAntigravityResponse", () => {
   const now = 1770000000000;
 
-  it("normalizes standard Connect-RPC quota summary with session and model limits", () => {
+  it("normalizes multi-tier Connect-RPC RetrieveUserQuotaSummary payload with Gemini session and Claude/GPT weekly limits", () => {
+    const rpcPayload = {
+      response: {
+        groups: [
+          {
+            displayName: "Gemini Models",
+            description: "Models within this group: Gemini Flash, Gemini Pro",
+            buckets: [
+              {
+                bucketId: "gemini-weekly",
+                displayName: "Weekly Limit Remaining",
+                window: "weekly",
+                remainingFraction: 0.95,
+                resetTime: "2026-09-04T09:21:18Z",
+              },
+              {
+                bucketId: "gemini-5h",
+                displayName: "Five Hour Limit Remaining",
+                window: "5h",
+                remainingFraction: 0.68,
+                resetTime: "2026-08-29T16:22:01Z",
+              },
+            ],
+          },
+          {
+            displayName: "Claude and GPT models",
+            description: "Models within this group: Claude Opus, Claude Sonnet, GPT-OSS",
+            buckets: [
+              {
+                bucketId: "3p-weekly",
+                displayName: "Weekly Limit Remaining",
+                window: "weekly",
+                remainingFraction: 0.75,
+                resetTime: "2026-08-31T15:00:29Z",
+              },
+              {
+                bucketId: "3p-5h",
+                displayName: "Five Hour Limit Remaining",
+                window: "5h",
+                remainingFraction: 1.0,
+                resetTime: "2026-08-29T16:35:51Z",
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    const snapshot = normalizeAntigravityResponse(rpcPayload, now);
+
+    expect(snapshot).toEqual({
+      provider: "antigravity",
+      sessionUsedPercent: 32,
+      sessionResetTime: "2026-08-29T16:22:01Z",
+      modelUsedPercent: 25,
+      modelResetTime: "2026-08-31T15:00:29Z",
+      status: "ok",
+      planType: null,
+      errorMessage: null,
+      updatedAt: now,
+    });
+  });
+
+  it("handles warning and exhausted states in Connect-RPC response", () => {
+    const warningPayload = {
+      response: {
+        groups: [
+          {
+            displayName: "Gemini Models",
+            buckets: [
+              {
+                bucketId: "gemini-5h",
+                window: "5h",
+                remainingFraction: 0.15,
+                resetTime: "2026-08-29T16:22:01Z",
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const warningSnapshot = normalizeAntigravityResponse(warningPayload, now);
+    expect(warningSnapshot.sessionUsedPercent).toBe(85);
+    expect(warningSnapshot.status).toBe("warning");
+
+    const exhaustedPayload = {
+      response: {
+        groups: [
+          {
+            displayName: "Gemini Models",
+            buckets: [
+              {
+                bucketId: "gemini-5h",
+                window: "5h",
+                remainingFraction: 0.0,
+                resetTime: "2026-08-29T16:22:01Z",
+              },
+            ],
+          },
+        ],
+      },
+    };
+    const exhaustedSnapshot = normalizeAntigravityResponse(exhaustedPayload, now);
+    expect(exhaustedSnapshot.sessionUsedPercent).toBe(100);
+    expect(exhaustedSnapshot.status).toBe("exhausted");
+  });
+
+  it("normalizes legacy Connect-RPC quota summary format for backward compatibility", () => {
     const rawData = {
       userTier: "PRO",
       sessionQuota: {
