@@ -5,12 +5,14 @@ import { AntigravityLogo, OpenAILogo } from "../prototype/icons";
 import { formatResetCountdown } from "../models/normalizers";
 import { deriveSnapshotSyncState, SnapshotSyncState } from "../services/cache";
 import { useCountdownInterpolation } from "../hooks/useCountdown";
+import { useOnDemandRefresh } from "../hooks/useOnDemandRefresh";
 
 export interface NotchProps {
   snapshots: Record<ProviderId, UsageSnapshot>;
   syncStates?: Record<ProviderId, SnapshotSyncState>;
   referenceNow?: number;
   onVerificationPoll?: (providerId: ProviderId) => void | Promise<void>;
+  onRefresh?: (providerId: ProviderId) => void | Promise<void>;
 }
 
 const PROVIDER_METADATA: Record<string, { name: string; brandColor: string; sessionLabel: string; modelLabel: string }> = {
@@ -33,9 +35,15 @@ export const Notch: React.FC<NotchProps> = ({
   syncStates,
   referenceNow: staticReferenceNow,
   onVerificationPoll,
+  onRefresh,
 }) => {
   const [activeProvider, setActiveProvider] = useState<ProviderId | null>(null);
   const [hoveredRing, setHoveredRing] = useState<ProviderId | null>(null);
+
+  const { triggerOnDemandRefresh } = useOnDemandRefresh({
+    onRefresh,
+    debounceWindowMs: 5000,
+  });
 
   const { countdowns, referenceNow: liveNow } = useCountdownInterpolation({
     snapshots,
@@ -102,7 +110,10 @@ export const Notch: React.FC<NotchProps> = ({
           aria-label={`${currentMeta.name} Details`}
           className="absolute right-[90px] w-[260px] bg-[#0c0d10] border border-white/10 rounded-2xl p-4 shadow-[0_12px_40px_rgba(0,0,0,0.85)] backdrop-blur-3xl text-white z-30 pointer-events-auto transition-all duration-200"
           style={{ top: `${popoverYOffset}px` }}
-          onMouseEnter={() => setHoveredRing(currentSnapshot.provider)}
+          onMouseEnter={() => {
+            setHoveredRing(currentSnapshot.provider);
+            triggerOnDemandRefresh(currentSnapshot.provider);
+          }}
           onMouseLeave={() => setHoveredRing(null)}
         >
           {/* Caret Arrow */}
@@ -267,10 +278,14 @@ export const Notch: React.FC<NotchProps> = ({
               <button
                 key={pId}
                 type="button"
-                onClick={() =>
-                  setActiveProvider((prev) => (prev === pId ? null : pId))
-                }
-                onMouseEnter={() => setHoveredRing(pId)}
+                onClick={() => {
+                  setActiveProvider((prev) => (prev === pId ? null : pId));
+                  triggerOnDemandRefresh(pId);
+                }}
+                onMouseEnter={() => {
+                  setHoveredRing(pId);
+                  triggerOnDemandRefresh(pId);
+                }}
                 onMouseLeave={() => setHoveredRing(null)}
                 aria-label={`${meta.name}: ${snap.sessionUsedPercent}%`}
                 className={`group relative flex flex-col items-center justify-center transition-transform duration-150 focus:outline-none ${

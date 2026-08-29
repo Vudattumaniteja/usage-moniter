@@ -14,6 +14,9 @@ import { ProviderId, UsageSnapshot } from "./types";
 import { useSnapshotCache } from "./hooks/useSnapshotCache";
 import { antigravityAdapter } from "./services/antigravityAdapter";
 import { codexAdapter } from "./services/codexAdapter";
+import { dockOverlayWindow } from "./services/windowDocking";
+import { overlayHitTestManager } from "./services/hitTesting";
+import { defaultNetworkMonitor } from "./services/networkMonitor";
 
 /**
  * Three variants of the Windows right-edge curved notch overlay,
@@ -48,8 +51,24 @@ export const App: React.FC = () => {
 
   const [backgroundMode, setBackgroundMode] = useState<BackgroundMode>("fluid");
 
-  // Subscribe to live Antigravity Connect-RPC & Codex polling
+  // Dock overlay window to right edge of primary display on startup & resize
   useEffect(() => {
+    dockOverlayWindow({ edge: "right", alignment: "center" });
+
+    const handleResize = () => {
+      dockOverlayWindow({ edge: "right", alignment: "center" });
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
+  // Subscribe to live Antigravity Connect-RPC, Codex polling, and network online/offline events
+  useEffect(() => {
+    defaultNetworkMonitor.startMonitoring();
+
     const unsubAntigravity = antigravityAdapter.subscribe((snapshot) => {
       if (snapshot.status !== "error" || snapshot.sessionUsedPercent > 0) {
         onLivePollSuccess(snapshot);
@@ -62,14 +81,20 @@ export const App: React.FC = () => {
       }
     });
 
+    const unsubNetwork = defaultNetworkMonitor.subscribe((online) => {
+      codexAdapter.handleNetworkStatusChange(online);
+    });
+
     antigravityAdapter.startPolling();
     codexAdapter.startPolling();
 
     return () => {
       unsubAntigravity();
       unsubCodex();
+      unsubNetwork();
       antigravityAdapter.stopPolling();
       codexAdapter.stopPolling();
+      defaultNetworkMonitor.stopMonitoring();
     };
   }, [onLivePollSuccess]);
 
@@ -129,6 +154,20 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleOnDemandRefresh = async (providerId: ProviderId) => {
+    if (providerId === "antigravity") {
+      const refreshed = await antigravityAdapter.refreshNow();
+      if (refreshed.status !== "error" || refreshed.sessionUsedPercent > 0) {
+        onLivePollSuccess(refreshed);
+      }
+    } else if (providerId === "codex") {
+      const refreshed = await codexAdapter.refreshNow();
+      if (refreshed.status !== "error" || refreshed.sessionUsedPercent > 0) {
+        onLivePollSuccess(refreshed);
+      }
+    }
+  };
+
   const handleVerificationPoll = async (providerId: ProviderId) => {
     if (providerId === "antigravity") {
       const refreshed = await antigravityAdapter.refreshNow();
@@ -156,8 +195,13 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleMouseMove = (e: React.MouseEvent) => {
+    overlayHitTestManager.handleMouseMove(e.clientX, e.clientY);
+  };
+
   return (
     <div
+      onMouseMove={handleMouseMove}
       className={`relative w-screen h-screen overflow-hidden transition-colors duration-300 flex items-center justify-end ${getBackgroundStyles()}`}
     >
       {/* Visual Canvas context watermark for simulated desktop environments */}
@@ -178,6 +222,7 @@ export const App: React.FC = () => {
           <VariantA
             snapshots={snapshots}
             syncStates={syncStates}
+            onRefresh={handleOnDemandRefresh}
             onVerificationPoll={handleVerificationPoll}
           />
         )}

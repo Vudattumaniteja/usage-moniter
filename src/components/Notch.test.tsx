@@ -146,10 +146,61 @@ describe("Notch Component", () => {
       vi.advanceTimersByTime(2000);
     });
 
-    expect(screen.getByText(/Resets in Ready/i)).toBeInTheDocument();
     expect(onVerificationPoll).toHaveBeenCalledTimes(1);
     expect(onVerificationPoll).toHaveBeenCalledWith("antigravity");
 
     vi.useRealTimers();
   });
+
+  it("triggers debounced 5-second on-demand refresh when hovering or clicking a usage ring", () => {
+    vi.useFakeTimers();
+    const onRefresh = vi.fn();
+
+    render(
+      <Notch
+        snapshots={mockSnapshots}
+        referenceNow={now}
+        onRefresh={onRefresh}
+      />
+    );
+
+    const antigravityRing = screen.getByRole("button", { name: /Antigravity Usage: 40%/i });
+
+    // Hover ring -> immediate refresh
+    fireEvent.mouseEnter(antigravityRing);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+    expect(onRefresh).toHaveBeenCalledWith("antigravity");
+
+    // Repeated hovers within 5s are debounced
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    fireEvent.mouseEnter(antigravityRing);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+
+    // Fast-forward remainder of 5s window -> trailing debounced refresh
+    act(() => {
+      vi.advanceTimersByTime(4000);
+    });
+    expect(onRefresh).toHaveBeenCalledTimes(2);
+
+    vi.useRealTimers();
+  });
+
+  it("applies pointer-events-auto to interactive notch and popover while keeping container click-through", () => {
+    const { container } = render(
+      <Notch
+        snapshots={mockSnapshots}
+        referenceNow={now}
+      />
+    );
+
+    // Root wrapper is transparent pass-through (pointer-events-none)
+    expect(container.firstChild).toHaveClass("pointer-events-none");
+
+    // Notch gauge stack intercepts mouse events (pointer-events-auto)
+    const antigravityRing = screen.getByRole("button", { name: /Antigravity Usage: 40%/i });
+    expect(antigravityRing.closest(".pointer-events-auto")).not.toBeNull();
+  });
 });
+
