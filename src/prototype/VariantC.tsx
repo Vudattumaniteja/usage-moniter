@@ -4,14 +4,21 @@ import { ProviderId, UsageSnapshot } from "../types";
 import { PROVIDER_METADATA } from "./mockData";
 import { ClaudeLogo, OpenAILogo, AntigravityLogo, GeminiLogo } from "./icons";
 import { formatResetCountdown } from "../models/normalizers";
+import { useCountdownInterpolation } from "../hooks/useCountdown";
 
-interface VariantCProps {
+export interface VariantCProps {
   snapshots: Record<ProviderId, UsageSnapshot>;
+  onVerificationPoll?: (providerId: ProviderId) => void | Promise<void>;
 }
 
-export const VariantC: React.FC<VariantCProps> = ({ snapshots }) => {
+export const VariantC: React.FC<VariantCProps> = ({ snapshots, onVerificationPoll }) => {
   const [showJsonInspector, setShowJsonInspector] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<ProviderId>("claude");
+
+  const { countdowns, referenceNow } = useCountdownInterpolation({
+    snapshots,
+    onVerificationPoll,
+  });
 
   const getBrandLogo = (provider: string, className = "w-3.5 h-3.5") => {
     switch (provider) {
@@ -114,7 +121,7 @@ export const VariantC: React.FC<VariantCProps> = ({ snapshots }) => {
                 </div>
 
                 <span className="text-[8px] text-slate-400 mt-1">
-                  ⏱ {formatResetCountdown(snap.sessionResetTime)}
+                  ⏱ {countdowns[pId]?.sessionResetFormatted ?? formatResetCountdown(snap.sessionResetTime, referenceNow)}
                 </span>
               </button>
             );

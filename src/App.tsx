@@ -102,6 +102,19 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleVerificationPoll = (providerId: ProviderId) => {
+    const current = snapshots[providerId];
+    if (current) {
+      const refreshed: UsageSnapshot = {
+        ...current,
+        sessionUsedPercent: current.sessionUsedPercent >= 100 ? 0 : current.sessionUsedPercent,
+        status: current.status === "exhausted" ? "ok" : current.status,
+        sessionResetTime: null,
+      };
+      onLivePollSuccess(refreshed);
+    }
+  };
+
   return (
     <div
       className={`relative w-screen h-screen overflow-hidden transition-colors duration-300 flex items-center justify-end ${getBackgroundStyles()}`}
@@ -121,10 +134,24 @@ export const App: React.FC = () => {
       {/* Render active prototype variant */}
       <main className="w-full h-full flex items-center justify-end">
         {currentVariant === "A" && (
-          <VariantA snapshots={snapshots} syncStates={syncStates} />
+          <VariantA
+            snapshots={snapshots}
+            syncStates={syncStates}
+            onVerificationPoll={handleVerificationPoll}
+          />
         )}
-        {currentVariant === "B" && <VariantB snapshots={snapshots} />}
-        {currentVariant === "C" && <VariantC snapshots={snapshots} />}
+        {currentVariant === "B" && (
+          <VariantB
+            snapshots={snapshots}
+            onVerificationPoll={handleVerificationPoll}
+          />
+        )}
+        {currentVariant === "C" && (
+          <VariantC
+            snapshots={snapshots}
+            onVerificationPoll={handleVerificationPoll}
+          />
+        )}
       </main>
 
       {/* Floating Prototype Switcher & State Controls */}

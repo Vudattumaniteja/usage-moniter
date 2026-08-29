@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { Notch } from "./Notch";
 import { UsageSnapshot } from "../types";
 
@@ -102,5 +102,54 @@ describe("Notch Component", () => {
     fireEvent.click(codexRing);
 
     expect(screen.getByText(/Cached data \(stale/i)).toBeInTheDocument();
+  });
+
+  it("decrements countdown smoothly every second in popover card and triggers verification poll at zero", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    const onVerificationPoll = vi.fn();
+    const liveSnapshots: Record<string, UsageSnapshot> = {
+      antigravity: {
+        provider: "antigravity",
+        sessionUsedPercent: 60,
+        sessionResetTime: now + 3000, // 3s
+        modelUsedPercent: 40,
+        status: "ok",
+        planType: "Pro",
+      },
+    };
+
+    render(
+      <Notch
+        snapshots={liveSnapshots}
+        onVerificationPoll={onVerificationPoll}
+      />
+    );
+
+    const antigravityRing = screen.getByRole("button", { name: /Antigravity Usage: 60%/i });
+    fireEvent.click(antigravityRing);
+
+    expect(screen.getByText(/Resets in 3s/i)).toBeInTheDocument();
+    expect(onVerificationPoll).not.toHaveBeenCalled();
+
+    // Advance 1s
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    expect(screen.getByText(/Resets in 2s/i)).toBeInTheDocument();
+    expect(onVerificationPoll).not.toHaveBeenCalled();
+
+    // Advance 2s to zero
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+
+    expect(screen.getByText(/Resets in Ready/i)).toBeInTheDocument();
+    expect(onVerificationPoll).toHaveBeenCalledTimes(1);
+    expect(onVerificationPoll).toHaveBeenCalledWith("antigravity");
+
+    vi.useRealTimers();
   });
 });
