@@ -53,7 +53,12 @@ function getStatusMessage(snapshot: UsageSnapshot, resetFormatted: string): stri
     case "warning":
       return `Approaching limit (${snapshot.sessionUsedPercent}%) - resets in ${resetFormatted}`;
     case "unauthenticated":
-      return "Authentication expired or missing token";
+      return (
+        snapshot.errorMessage ??
+        (snapshot.provider === "codex"
+          ? "Run 'codex login' in terminal"
+          : "Authentication expired or missing token")
+      );
     case "error":
       return snapshot.errorMessage ?? "Failed to connect to service";
     case "ok":

@@ -80,4 +80,19 @@ describe("snapshotToPopoverCard", () => {
     expect(card.statusMessage).toContain("Quota exhausted");
     expect(card.sessionResetFormatted).toBe("30m");
   });
+
+  it("displays 'Run codex login in terminal' message for unauthenticated Codex state", () => {
+    const snapshot: UsageSnapshot = {
+      provider: "codex",
+      sessionUsedPercent: 0,
+      sessionResetTime: null,
+      status: "unauthenticated",
+      errorMessage: "Run 'codex login' in terminal",
+    };
+
+    const card = snapshotToPopoverCard(snapshot, now);
+    expect(card.status).toBe("unauthenticated");
+    expect(card.statusMessage).toBe("Run 'codex login' in terminal");
+  });
 });
+

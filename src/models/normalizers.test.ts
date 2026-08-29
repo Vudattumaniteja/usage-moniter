@@ -283,4 +283,71 @@ describe("normalizeCodexResponse", () => {
     expect(snapshot.status).toBe("exhausted");
     expect(snapshot.sessionUsedPercent).toBe(100);
   });
+
+  it("calculates reset timestamp from reset_after_seconds when reset_at is missing", () => {
+    const rawData = {
+      plan_type: "pro",
+      rate_limit: {
+        allowed: true,
+        limit_reached: false,
+        primary_window: {
+          used_percent: 50,
+          reset_after_seconds: 3600,
+        },
+        secondary_window: {
+          used_percent: 20,
+          reset_after_seconds: 86400,
+        },
+      },
+    };
+
+    const snapshot = normalizeCodexResponse(rawData, now);
+    expect(snapshot.sessionResetTime).toBe(now + 3600 * 1000);
+    expect(snapshot.modelResetTime).toBe(now + 86400 * 1000);
+    expect(snapshot.status).toBe("ok");
+    expect(snapshot.planType).toBe("pro");
+  });
+
+  it("handles unauthenticated error with options", () => {
+    const snapshot = normalizeCodexResponse(null, now, {
+      isAuthError: true,
+      errorMessage: "Run 'codex login' in terminal",
+    });
+
+    expect(snapshot).toEqual({
+      provider: "codex",
+      sessionUsedPercent: 0,
+      sessionResetTime: null,
+      modelUsedPercent: null,
+      modelResetTime: null,
+      status: "unauthenticated",
+      planType: null,
+      errorMessage: "Run 'codex login' in terminal",
+      updatedAt: now,
+    });
+  });
+
+  it("triggers warning status when secondary window or session window exceeds 80%", () => {
+    const rawData = {
+      plan_type: "plus",
+      rate_limit: {
+        allowed: true,
+        limit_reached: false,
+        primary_window: {
+          used_percent: 45,
+          reset_after_seconds: 3600,
+        },
+        secondary_window: {
+          used_percent: 88,
+          reset_after_seconds: 86400,
+        },
+      },
+    };
+
+    const snapshot = normalizeCodexResponse(rawData, now);
+    expect(snapshot.sessionUsedPercent).toBe(45);
+    expect(snapshot.modelUsedPercent).toBe(88);
+    expect(snapshot.status).toBe("warning");
+  });
 });
+

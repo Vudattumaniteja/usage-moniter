@@ -149,6 +149,13 @@ export const Notch: React.FC<NotchProps> = ({
             </div>
           )}
 
+          {currentSnapshot.status === "unauthenticated" && (
+            <div className="text-[10px] text-[#ff9f0a] bg-[#ff9f0a]/10 border border-[#ff9f0a]/30 rounded-md px-2 py-1 mb-3 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#ff9f0a] animate-pulse" />
+              <span>{currentSnapshot.errorMessage || "Run 'codex login' in terminal"}</span>
+            </div>
+          )}
+
           {/* Session Quota Bar */}
           <div className="space-y-1.5 mb-3.5">
             <span className="text-[11px] text-[#8e8e93] font-medium block">
