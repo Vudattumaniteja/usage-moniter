@@ -6,12 +6,13 @@ import { AntigravityLogo, OpenAILogo } from "./icons";
 import { formatResetCountdown } from "../models/normalizers";
 import { deriveSnapshotSyncState, SnapshotSyncState } from "../services/cache";
 import { useCountdownInterpolation } from "../hooks/useCountdown";
+import { useOnDemandRefresh } from "../hooks/useOnDemandRefresh";
 
 export interface VariantAProps {
   snapshots: Record<ProviderId, UsageSnapshot>;
   syncStates?: Record<ProviderId, SnapshotSyncState>;
   referenceNow?: number;
-  onRefresh?: (provider: ProviderId) => void;
+  onRefresh?: (provider: ProviderId) => void | Promise<void>;
   onVerificationPoll?: (providerId: ProviderId) => void | Promise<void>;
 }
 
@@ -19,10 +20,16 @@ export const VariantA: React.FC<VariantAProps> = ({
   snapshots,
   syncStates,
   referenceNow: staticReferenceNow,
+  onRefresh,
   onVerificationPoll,
 }) => {
   const [activePopover, setActivePopover] = useState<ProviderId | null>("antigravity");
   const [hoveredRing, setHoveredRing] = useState<ProviderId | null>(null);
+
+  const { triggerOnDemandRefresh } = useOnDemandRefresh({
+    onRefresh,
+    debounceWindowMs: 5000,
+  });
 
   const { countdowns, referenceNow: liveNow } = useCountdownInterpolation({
     snapshots,
@@ -89,7 +96,10 @@ export const VariantA: React.FC<VariantAProps> = ({
         <div
           className="absolute right-[90px] w-[260px] bg-[#0c0d10] border border-white/10 rounded-2xl p-4 shadow-[0_12px_40px_rgba(0,0,0,0.85)] backdrop-blur-3xl text-white z-30 pointer-events-auto transition-all duration-200"
           style={{ top: `${popoverYOffset}px` }}
-          onMouseEnter={() => setHoveredRing(currentSnapshot.provider)}
+          onMouseEnter={() => {
+            setHoveredRing(currentSnapshot.provider);
+            triggerOnDemandRefresh(currentSnapshot.provider);
+          }}
           onMouseLeave={() => setHoveredRing(null)}
         >
           {/* Speech-bubble Caret Arrow pointing right to the gauge */}
@@ -254,8 +264,14 @@ export const VariantA: React.FC<VariantAProps> = ({
               <button
                 key={pId}
                 type="button"
-                onClick={() => setActivePopover(pId)}
-                onMouseEnter={() => setHoveredRing(pId)}
+                onClick={() => {
+                  setActivePopover(pId);
+                  triggerOnDemandRefresh(pId);
+                }}
+                onMouseEnter={() => {
+                  setHoveredRing(pId);
+                  triggerOnDemandRefresh(pId);
+                }}
                 onMouseLeave={() => setHoveredRing(null)}
                 aria-label={`${meta.name}: ${snap.sessionUsedPercent}%`}
                 className={`group relative flex flex-col items-center justify-center transition-transform duration-150 focus:outline-none ${

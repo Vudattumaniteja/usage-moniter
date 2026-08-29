@@ -297,4 +297,48 @@ describe("CodexAdapter", () => {
       adapter.stopPolling();
     });
   });
+
+  describe("Offline Remote Polling Pause and Online Auto-Resume", () => {
+    it("pauses polling when network goes offline and resumes immediately when reconnecting", async () => {
+      const adapter = new CodexAdapter({ transport: mockTransport });
+      const onSnapshot = vi.fn();
+      adapter.subscribe(onSnapshot);
+
+      adapter.startPolling();
+      await vi.advanceTimersByTimeAsync(0); // Initial poll (t=0)
+      expect(mockTransport.fetchUsage).toHaveBeenCalledTimes(1);
+
+      // Network goes offline
+      adapter.handleNetworkStatusChange(false);
+      expect(adapter.isNetworkOffline()).toBe(true);
+
+      // Fast-forward 120 seconds while offline -> no remote requests made
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(mockTransport.fetchUsage).toHaveBeenCalledTimes(1);
+
+      // Network comes back online
+      await adapter.handleNetworkStatusChange(true);
+      expect(adapter.isNetworkOffline()).toBe(false);
+
+      // Immediate poll on reconnection
+      expect(mockTransport.fetchUsage).toHaveBeenCalledTimes(2);
+
+      // Regular 60s polling resumes
+      await vi.advanceTimersByTimeAsync(CODEX_POLL_INTERVAL_MS);
+      expect(mockTransport.fetchUsage).toHaveBeenCalledTimes(3);
+
+      adapter.stopPolling();
+    });
+
+    it("prevents remote requests when fetchUsage is invoked directly while offline", async () => {
+      const adapter = new CodexAdapter({ transport: mockTransport });
+      adapter.handleNetworkStatusChange(false);
+
+      const snapshot = await adapter.fetchUsage();
+      expect(mockTransport.fetchUsage).not.toHaveBeenCalled();
+      expect(snapshot.status).toBe("error");
+      expect(snapshot.errorMessage).toContain("offline");
+    });
+  });
 });
+

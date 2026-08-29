@@ -6,6 +6,7 @@ import {
   loadCodexAuthFromFile,
 } from "./codexAuth";
 import { CodexBackoffManager } from "./codexBackoff";
+import { NetworkMonitor } from "./networkMonitor";
 
 export const CODEX_POLL_INTERVAL_MS = 60_000; // 60-second polling cadence
 export const CODEX_WHAM_USAGE_ENDPOINT =
@@ -168,6 +169,7 @@ export class FetchCodexTransport implements CodexTransport {
 export interface CodexAdapterOptions {
   transport?: CodexTransport;
   pollIntervalMs?: number;
+  networkMonitor?: NetworkMonitor;
 }
 
 export class CodexAdapter implements ProviderAdapter {
@@ -175,18 +177,22 @@ export class CodexAdapter implements ProviderAdapter {
   readonly name: string = "OpenAI Codex";
 
   private transport: CodexTransport;
+  private networkMonitor?: NetworkMonitor;
   private pollIntervalMs: number;
   private isPollingRunning: boolean = false;
   private isSuspended: boolean = false;
+  private isOffline: boolean = false;
   private pollingTimer: NodeJS.Timeout | number | null = null;
   private backoffManager: CodexBackoffManager;
   private subscribers: Set<(snapshot: UsageSnapshot) => void> = new Set();
   private lastSnapshot: UsageSnapshot | null = null;
   private authWatcherUnsubscribe: (() => void) | null = null;
+  private networkUnsubscribe: (() => void) | null = null;
 
   constructor(options: CodexAdapterOptions = {}) {
     this.pollIntervalMs = options.pollIntervalMs || CODEX_POLL_INTERVAL_MS;
     this.backoffManager = new CodexBackoffManager();
+    this.networkMonitor = options.networkMonitor;
 
     if (options.transport) {
       this.transport = options.transport;
@@ -198,10 +204,39 @@ export class CodexAdapter implements ProviderAdapter {
     } else {
       this.transport = new FetchCodexTransport();
     }
+
+    if (this.networkMonitor) {
+      this.isOffline = !this.networkMonitor.isOnline();
+      this.networkUnsubscribe = this.networkMonitor.subscribe((online) => {
+        this.handleNetworkStatusChange(online);
+      });
+    }
   }
 
   isAuthSuspended(): boolean {
     return this.isSuspended;
+  }
+
+  isNetworkOffline(): boolean {
+    return this.isOffline;
+  }
+
+  async handleNetworkStatusChange(isOnline: boolean): Promise<void> {
+    const wasOffline = this.isOffline;
+    this.isOffline = !isOnline;
+
+    if (!isOnline) {
+      // Pause remote polls when Windows goes offline
+      if (this.pollingTimer) {
+        clearTimeout(this.pollingTimer);
+        this.pollingTimer = null;
+      }
+    } else if (wasOffline && isOnline) {
+      // Resume immediately when reconnecting
+      if (this.isPollingRunning && !this.isSuspended) {
+        await this.fetchUsage();
+      }
+    }
   }
 
   getLastSnapshot(): UsageSnapshot | null {
@@ -249,6 +284,22 @@ export class CodexAdapter implements ProviderAdapter {
    */
   async fetchUsage(overrideCreds?: CodexAuthCredentials): Promise<UsageSnapshot> {
     const now = Date.now();
+
+    if (this.isOffline) {
+      const snapshot: UsageSnapshot = {
+        provider: "codex",
+        sessionUsedPercent: this.lastSnapshot?.sessionUsedPercent ?? 0,
+        sessionResetTime: this.lastSnapshot?.sessionResetTime ?? null,
+        modelUsedPercent: this.lastSnapshot?.modelUsedPercent ?? null,
+        modelResetTime: this.lastSnapshot?.modelResetTime ?? null,
+        status: "error",
+        errorMessage: "Network is offline. Polling paused until reconnection.",
+        planType: this.lastSnapshot?.planType ?? null,
+        updatedAt: now,
+      };
+      this.notifySubscribers(snapshot);
+      return snapshot;
+    }
 
     try {
       const creds = overrideCreds || (await this.transport.loadAuth());
@@ -411,6 +462,10 @@ export class CodexAdapter implements ProviderAdapter {
     if (this.authWatcherUnsubscribe) {
       this.authWatcherUnsubscribe();
       this.authWatcherUnsubscribe = null;
+    }
+    if (this.networkUnsubscribe) {
+      this.networkUnsubscribe();
+      this.networkUnsubscribe = null;
     }
   }
 
