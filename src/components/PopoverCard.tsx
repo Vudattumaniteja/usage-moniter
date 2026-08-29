@@ -1,13 +1,40 @@
-import React from "react";
-import { PopoverCard as PopoverCardType } from "../types";
+import React, { useMemo } from "react";
+import { PopoverCard as PopoverCardType, ProviderId, UsageSnapshot } from "../types";
 import { AlertTriangle, CheckCircle2, Clock, X, XCircle, Zap } from "lucide-react";
+import { useProviderCountdown } from "../hooks/useCountdown";
+import { snapshotToPopoverCard } from "../models/ui";
 
 interface PopoverCardProps {
-  card: PopoverCardType;
+  card?: PopoverCardType;
+  snapshot?: UsageSnapshot;
+  onVerificationPoll?: (providerId: ProviderId) => void | Promise<void>;
   onClose?: () => void;
 }
 
-export const PopoverCard: React.FC<PopoverCardProps> = ({ card, onClose }) => {
+export const PopoverCard: React.FC<PopoverCardProps> = ({
+  card: staticCard,
+  snapshot,
+  onVerificationPoll,
+  onClose,
+}) => {
+  const { countdown, referenceNow } = useProviderCountdown({
+    snapshot,
+    onVerificationPoll,
+  });
+
+  const card = useMemo(() => {
+    if (snapshot) {
+      const derived = snapshotToPopoverCard(snapshot, referenceNow);
+      if (countdown) {
+        derived.sessionResetFormatted = countdown.sessionResetFormatted;
+        if (countdown.modelResetFormatted !== null) {
+          derived.modelResetFormatted = countdown.modelResetFormatted;
+        }
+      }
+      return derived;
+    }
+    return staticCard!;
+  }, [snapshot, staticCard, countdown, referenceNow]);
   const getStatusIcon = () => {
     switch (card.status) {
       case "ok":

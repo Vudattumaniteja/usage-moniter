@@ -4,17 +4,25 @@ import { ProviderId, UsageSnapshot } from "../types";
 import { PROVIDER_METADATA } from "./mockData";
 import { ClaudeLogo, OpenAILogo, AntigravityLogo, GeminiLogo } from "./icons";
 import { formatResetCountdown } from "../models/normalizers";
+import { useCountdownInterpolation } from "../hooks/useCountdown";
 
-interface VariantBProps {
+export interface VariantBProps {
   snapshots: Record<ProviderId, UsageSnapshot>;
+  onVerificationPoll?: (providerId: ProviderId) => void | Promise<void>;
 }
 
-export const VariantB: React.FC<VariantBProps> = ({ snapshots }) => {
+export const VariantB: React.FC<VariantBProps> = ({ snapshots, onVerificationPoll }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<ProviderId>("claude");
 
+  const { countdowns, referenceNow } = useCountdownInterpolation({
+    snapshots,
+    onVerificationPoll,
+  });
+
   const activeSnapshots = Object.values(snapshots);
   const selectedSnap = snapshots[selectedProvider] || activeSnapshots[0];
+  const selectedCountdown = countdowns[selectedProvider];
   const selectedMeta = PROVIDER_METADATA[selectedProvider] || {
     name: selectedProvider,
     brandColor: "#38bdf8",
@@ -126,7 +134,7 @@ export const VariantB: React.FC<VariantBProps> = ({ snapshots }) => {
                 Next Reset
               </span>
               <span className="font-mono font-semibold text-slate-200">
-                {formatResetCountdown(selectedSnap.sessionResetTime)}
+                {selectedCountdown?.sessionResetFormatted ?? formatResetCountdown(selectedSnap.sessionResetTime, referenceNow)}
               </span>
             </div>
           </div>

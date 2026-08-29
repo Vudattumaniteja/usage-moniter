@@ -5,32 +5,43 @@ import { generateRightEdgeNotchPath } from "./notchMath";
 import { AntigravityLogo, OpenAILogo } from "./icons";
 import { formatResetCountdown } from "../models/normalizers";
 import { deriveSnapshotSyncState, SnapshotSyncState } from "../services/cache";
+import { useCountdownInterpolation } from "../hooks/useCountdown";
 
-interface VariantAProps {
+export interface VariantAProps {
   snapshots: Record<ProviderId, UsageSnapshot>;
   syncStates?: Record<ProviderId, SnapshotSyncState>;
   referenceNow?: number;
   onRefresh?: (provider: ProviderId) => void;
+  onVerificationPoll?: (providerId: ProviderId) => void | Promise<void>;
 }
 
 export const VariantA: React.FC<VariantAProps> = ({
   snapshots,
   syncStates,
-  referenceNow,
+  referenceNow: staticReferenceNow,
+  onVerificationPoll,
 }) => {
   const [activePopover, setActivePopover] = useState<ProviderId | null>("antigravity");
   const [hoveredRing, setHoveredRing] = useState<ProviderId | null>(null);
 
+  const { countdowns, referenceNow: liveNow } = useCountdownInterpolation({
+    snapshots,
+    onVerificationPoll,
+    referenceNow: staticReferenceNow,
+  });
+
+  const effectiveNow = staticReferenceNow ?? liveNow;
   const currentProvider = hoveredRing || activePopover || "antigravity";
   const currentSnapshot = snapshots[currentProvider] || snapshots.antigravity;
   const currentMeta = PROVIDER_METADATA[currentProvider] || PROVIDER_METADATA.antigravity;
+  const currentCountdown = currentProvider ? countdowns[currentProvider] : null;
 
   const getProviderSyncState = (pId: ProviderId, snap?: UsageSnapshot): SnapshotSyncState => {
     if (syncStates && syncStates[pId] !== undefined) {
       return syncStates[pId];
     }
     if (snap) {
-      return deriveSnapshotSyncState(snap, false, referenceNow);
+      return deriveSnapshotSyncState(snap, false, effectiveNow);
     }
     return { isStale: false, isSyncing: false };
   };
@@ -154,7 +165,7 @@ export const VariantA: React.FC<VariantAProps> = ({
                 {currentSnapshot.sessionUsedPercent}% Used
               </span>
               <span className="text-[#8e8e93] text-[10px]">
-                Resets in {formatResetCountdown(currentSnapshot.sessionResetTime, referenceNow)}
+                Resets in {currentCountdown?.sessionResetFormatted ?? formatResetCountdown(currentSnapshot.sessionResetTime, effectiveNow)}
               </span>
             </div>
           </div>
@@ -182,7 +193,7 @@ export const VariantA: React.FC<VariantAProps> = ({
                     {currentSnapshot.modelUsedPercent}% Used
                   </span>
                   <span className="text-[#8e8e93] text-[10px]">
-                    Resets {currentSnapshot.modelResetTime ? formatResetCountdown(currentSnapshot.modelResetTime, referenceNow) : "Weekly"}
+                    Resets {currentCountdown?.modelResetFormatted ?? (currentSnapshot.modelResetTime ? formatResetCountdown(currentSnapshot.modelResetTime, effectiveNow) : "Weekly")}
                   </span>
                 </div>
               </div>

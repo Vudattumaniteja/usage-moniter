@@ -56,6 +56,11 @@ describe("formatResetCountdown", () => {
     expect(formatResetCountdown(target, now)).toBe("2d 5h");
   });
 
+  it("formats countdown in seconds when remaining duration is under one minute", () => {
+    expect(formatResetCountdown(now + 45 * 1000, now)).toBe("45s");
+    expect(formatResetCountdown(now + 1 * 1000, now)).toBe("1s");
+  });
+
   it("parses ISO date strings correctly", () => {
     const isoDate = new Date(now + 3600 * 1000 * 2).toISOString();
     expect(formatResetCountdown(isoDate, now)).toBe("2h 0m");
@@ -64,6 +69,11 @@ describe("formatResetCountdown", () => {
   it("handles epoch seconds as well as epoch milliseconds", () => {
     const targetSeconds = Math.floor(now / 1000) + 1800; // 30m
     expect(formatResetCountdown(targetSeconds, now)).toBe("30m");
+  });
+
+  it("formats duration with hours and minutes according to acceptance criteria (e.g. 2h 15m)", () => {
+    const target = now + (2 * 3600 + 15 * 60) * 1000;
+    expect(formatResetCountdown(target, now)).toBe("2h 15m");
   });
 });
 

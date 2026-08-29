@@ -69,7 +69,16 @@ export function formatResetCountdown(
     return `${totalHours}h ${remainingMinutes}m`;
   }
 
-  return `${totalMinutes}m`;
+  if (totalMinutes >= 1) {
+    return `${totalMinutes}m`;
+  }
+
+  const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
+  if (totalSeconds > 0) {
+    return `${totalSeconds}s`;
+  }
+
+  return "Ready";
 }
 
 interface AntigravitySessionQuota {

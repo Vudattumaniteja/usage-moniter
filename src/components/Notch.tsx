@@ -4,11 +4,13 @@ import { generateRightEdgeNotchPath } from "../prototype/notchMath";
 import { AntigravityLogo, OpenAILogo } from "../prototype/icons";
 import { formatResetCountdown } from "../models/normalizers";
 import { deriveSnapshotSyncState, SnapshotSyncState } from "../services/cache";
+import { useCountdownInterpolation } from "../hooks/useCountdown";
 
-interface NotchProps {
+export interface NotchProps {
   snapshots: Record<ProviderId, UsageSnapshot>;
   syncStates?: Record<ProviderId, SnapshotSyncState>;
   referenceNow?: number;
+  onVerificationPoll?: (providerId: ProviderId) => void | Promise<void>;
 }
 
 const PROVIDER_METADATA: Record<string, { name: string; brandColor: string; sessionLabel: string; modelLabel: string }> = {
@@ -26,20 +28,33 @@ const PROVIDER_METADATA: Record<string, { name: string; brandColor: string; sess
   },
 };
 
-export const Notch: React.FC<NotchProps> = ({ snapshots, syncStates, referenceNow }) => {
+export const Notch: React.FC<NotchProps> = ({
+  snapshots,
+  syncStates,
+  referenceNow: staticReferenceNow,
+  onVerificationPoll,
+}) => {
   const [activeProvider, setActiveProvider] = useState<ProviderId | null>(null);
   const [hoveredRing, setHoveredRing] = useState<ProviderId | null>(null);
 
+  const { countdowns, referenceNow: liveNow } = useCountdownInterpolation({
+    snapshots,
+    onVerificationPoll,
+    referenceNow: staticReferenceNow,
+  });
+
+  const effectiveNow = staticReferenceNow ?? liveNow;
   const currentProvider = hoveredRing || activeProvider;
   const currentSnapshot = currentProvider ? snapshots[currentProvider] : null;
   const currentMeta = currentProvider ? PROVIDER_METADATA[currentProvider] : null;
+  const currentCountdown = currentProvider ? countdowns[currentProvider] : null;
 
   const getProviderSyncState = (pId: ProviderId, snap?: UsageSnapshot): SnapshotSyncState => {
     if (syncStates && syncStates[pId] !== undefined) {
       return syncStates[pId];
     }
     if (snap) {
-      return deriveSnapshotSyncState(snap, false, referenceNow);
+      return deriveSnapshotSyncState(snap, false, effectiveNow);
     }
     return { isStale: false, isSyncing: false };
   };
@@ -159,7 +174,7 @@ export const Notch: React.FC<NotchProps> = ({ snapshots, syncStates, referenceNo
                 {currentSnapshot.sessionUsedPercent}% Used
               </span>
               <span className="text-[#8e8e93] text-[10px]">
-                Resets in {formatResetCountdown(currentSnapshot.sessionResetTime, referenceNow)}
+                Resets in {currentCountdown?.sessionResetFormatted ?? formatResetCountdown(currentSnapshot.sessionResetTime, effectiveNow)}
               </span>
             </div>
           </div>
@@ -185,7 +200,7 @@ export const Notch: React.FC<NotchProps> = ({ snapshots, syncStates, referenceNo
                     {currentSnapshot.modelUsedPercent}% Used
                   </span>
                   <span className="text-[#8e8e93] text-[10px]">
-                    Resets {currentSnapshot.modelResetTime ? formatResetCountdown(currentSnapshot.modelResetTime, referenceNow) : "Weekly"}
+                    Resets {currentCountdown?.modelResetFormatted ?? (currentSnapshot.modelResetTime ? formatResetCountdown(currentSnapshot.modelResetTime, effectiveNow) : "Weekly")}
                   </span>
                 </div>
               </div>
