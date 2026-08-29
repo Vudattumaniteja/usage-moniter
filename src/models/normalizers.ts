@@ -81,6 +81,21 @@ export function formatResetCountdown(
   return "Ready";
 }
 
+interface AntigravityBucket {
+  bucketId?: string;
+  displayName?: string;
+  description?: string;
+  window?: "5h" | "weekly" | string;
+  remainingFraction?: number;
+  resetTime?: string;
+}
+
+interface AntigravityGroup {
+  displayName?: string;
+  description?: string;
+  buckets?: AntigravityBucket[];
+}
+
 interface AntigravitySessionQuota {
   usedTokens?: number;
   maxTokens?: number;
@@ -94,7 +109,16 @@ interface AntigravityModelQuota {
 }
 
 interface AntigravityRawPayload {
+  response?: {
+    groups?: AntigravityGroup[];
+    description?: string;
+  };
+  groups?: AntigravityGroup[];
   userTier?: string;
+  userStatus?: {
+    userEmail?: string;
+    plan?: string;
+  };
   sessionQuota?: AntigravitySessionQuota;
   modelQuotas?: AntigravityModelQuota[];
   error?: string;
@@ -119,23 +143,61 @@ export function normalizeAntigravityResponse(
   }
 
   const payload = raw as AntigravityRawPayload;
+  const groups = payload.response?.groups || payload.groups;
+
   let sessionUsedPercent = 0;
   let sessionResetTime: number | string | null = null;
-
-  if (payload.sessionQuota) {
-    const { usedTokens = 0, maxTokens = 1 } = payload.sessionQuota;
-    sessionUsedPercent = maxTokens > 0 ? Math.round((usedTokens / maxTokens) * 100) : 0;
-    sessionResetTime = payload.sessionQuota.resetTimestamp ?? null;
-  }
-
   let modelUsedPercent: number | null = null;
   let modelResetTime: number | string | null = null;
 
-  if (Array.isArray(payload.modelQuotas) && payload.modelQuotas.length > 0) {
-    // Pick the primary or highest used model quota
-    const primaryModel = payload.modelQuotas[0];
-    modelUsedPercent = primaryModel.usedPercent ?? null;
-    modelResetTime = primaryModel.resetTimestamp ?? null;
+  if (Array.isArray(groups) && groups.length > 0) {
+    const geminiGroup = groups.find((g) =>
+      g.displayName?.toLowerCase().includes("gemini")
+    );
+    const thirdPartyGroup = groups.find((g) => {
+      const lower = g.displayName?.toLowerCase() || "";
+      return lower.includes("claude") || lower.includes("gpt") || lower.includes("3p");
+    });
+
+    const gemini5h = geminiGroup?.buckets?.find(
+      (b) => b.window === "5h" || b.bucketId?.toLowerCase().includes("5h")
+    );
+    const geminiWeekly = geminiGroup?.buckets?.find(
+      (b) => b.window === "weekly" || b.bucketId?.toLowerCase().includes("weekly")
+    );
+
+    const tpWeekly = thirdPartyGroup?.buckets?.find(
+      (b) => b.window === "weekly" || b.bucketId?.toLowerCase().includes("weekly")
+    );
+    const tp5h = thirdPartyGroup?.buckets?.find(
+      (b) => b.window === "5h" || b.bucketId?.toLowerCase().includes("5h")
+    );
+
+    // Primary session quota is Gemini 5h limit
+    const sessionRemaining = gemini5h?.remainingFraction ?? (tp5h ? tp5h.remainingFraction : 1.0);
+    sessionUsedPercent = Math.max(0, Math.min(100, Math.round((1.0 - (sessionRemaining ?? 1.0)) * 100)));
+    sessionResetTime = gemini5h?.resetTime ?? tp5h?.resetTime ?? null;
+
+    // Secondary model quota is Claude/GPT (3p) weekly limit, or Gemini weekly fallback
+    const targetWeekly = tpWeekly ?? geminiWeekly;
+    if (targetWeekly && targetWeekly.remainingFraction !== undefined) {
+      modelUsedPercent = Math.max(
+        0,
+        Math.min(100, Math.round((1.0 - targetWeekly.remainingFraction) * 100))
+      );
+      modelResetTime = targetWeekly.resetTime ?? null;
+    }
+  } else if (payload.sessionQuota) {
+    // Legacy fallback format
+    const { usedTokens = 0, maxTokens = 1 } = payload.sessionQuota;
+    sessionUsedPercent = maxTokens > 0 ? Math.round((usedTokens / maxTokens) * 100) : 0;
+    sessionResetTime = payload.sessionQuota.resetTimestamp ?? null;
+
+    if (Array.isArray(payload.modelQuotas) && payload.modelQuotas.length > 0) {
+      const primaryModel = payload.modelQuotas[0];
+      modelUsedPercent = primaryModel.usedPercent ?? null;
+      modelResetTime = primaryModel.resetTimestamp ?? null;
+    }
   }
 
   const maxPercent = Math.max(sessionUsedPercent, modelUsedPercent ?? 0);
@@ -150,7 +212,7 @@ export function normalizeAntigravityResponse(
     modelUsedPercent,
     modelResetTime,
     status,
-    planType: payload.userTier ?? null,
+    planType: payload.userTier ?? payload.userStatus?.plan ?? null,
     errorMessage: payload.error ?? null,
     updatedAt: referenceNow,
   };
