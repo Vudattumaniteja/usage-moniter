@@ -236,20 +236,42 @@ interface CodexRawPayload {
   error?: string;
 }
 
+export interface CodexNormalizeOptions extends StatusOptions {
+  errorMessage?: string | null;
+}
+
 /**
  * Normalizes ChatGPT backend-api wham/usage rate limit payload.
  */
 export function normalizeCodexResponse(
   raw: unknown,
-  referenceNow: number = Date.now()
+  referenceNow: number = Date.now(),
+  options?: CodexNormalizeOptions
 ): UsageSnapshot {
+  if (options?.isAuthError) {
+    return {
+      provider: "codex",
+      sessionUsedPercent: 0,
+      sessionResetTime: null,
+      modelUsedPercent: null,
+      modelResetTime: null,
+      status: "unauthenticated",
+      planType: null,
+      errorMessage: options.errorMessage ?? "Run 'codex login' in terminal",
+      updatedAt: referenceNow,
+    };
+  }
+
   if (!raw || typeof raw !== "object") {
     return {
       provider: "codex",
       sessionUsedPercent: 0,
       sessionResetTime: null,
+      modelUsedPercent: null,
+      modelResetTime: null,
       status: "error",
-      errorMessage: "Invalid or empty response from Codex service",
+      errorMessage:
+        options?.errorMessage ?? "Invalid or empty response from Codex service",
       updatedAt: referenceNow,
     };
   }
@@ -259,16 +281,29 @@ export function normalizeCodexResponse(
   const secondary = payload.rate_limit?.secondary_window;
 
   const sessionUsedPercent = primary?.used_percent ?? 0;
-  const sessionResetTime = primary?.reset_at ? primary.reset_at * 1000 : null;
+  let sessionResetTime: number | null = null;
+  if (primary?.reset_at) {
+    sessionResetTime = primary.reset_at * 1000;
+  } else if (primary?.reset_after_seconds !== undefined) {
+    sessionResetTime = referenceNow + primary.reset_after_seconds * 1000;
+  }
 
   const modelUsedPercent = secondary?.used_percent ?? null;
-  const modelResetTime = secondary?.reset_at ? secondary.reset_at * 1000 : null;
+  let modelResetTime: number | null = null;
+  if (secondary?.reset_at) {
+    modelResetTime = secondary.reset_at * 1000;
+  } else if (secondary?.reset_after_seconds !== undefined) {
+    modelResetTime = referenceNow + secondary.reset_after_seconds * 1000;
+  }
 
-  const isExhausted = payload.rate_limit?.limit_reached === true;
+  const maxPercent = Math.max(sessionUsedPercent, modelUsedPercent ?? 0);
+  const isExhausted =
+    payload.rate_limit?.limit_reached === true || maxPercent >= 100;
   const status: ProviderStatus = isExhausted
     ? "exhausted"
-    : deriveProviderStatus(sessionUsedPercent, {
-        isNetworkError: Boolean(payload.error),
+    : deriveProviderStatus(maxPercent, {
+        isAuthError: options?.isAuthError,
+        isNetworkError: Boolean(payload.error) || Boolean(options?.isNetworkError),
       });
 
   return {
@@ -279,7 +314,8 @@ export function normalizeCodexResponse(
     modelResetTime,
     status,
     planType: payload.plan_type ?? null,
-    errorMessage: payload.error ?? null,
+    errorMessage: options?.errorMessage ?? payload.error ?? null,
     updatedAt: referenceNow,
   };
 }
+

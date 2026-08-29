@@ -13,6 +13,7 @@ import {
 import { ProviderId, UsageSnapshot } from "./types";
 import { useSnapshotCache } from "./hooks/useSnapshotCache";
 import { antigravityAdapter } from "./services/antigravityAdapter";
+import { codexAdapter } from "./services/codexAdapter";
 
 /**
  * Three variants of the Windows right-edge curved notch overlay,
@@ -47,19 +48,28 @@ export const App: React.FC = () => {
 
   const [backgroundMode, setBackgroundMode] = useState<BackgroundMode>("fluid");
 
-  // Subscribe to live Antigravity Connect-RPC polling
+  // Subscribe to live Antigravity Connect-RPC & Codex polling
   useEffect(() => {
-    const unsubscribe = antigravityAdapter.subscribe((snapshot) => {
+    const unsubAntigravity = antigravityAdapter.subscribe((snapshot) => {
+      if (snapshot.status !== "error" || snapshot.sessionUsedPercent > 0) {
+        onLivePollSuccess(snapshot);
+      }
+    });
+
+    const unsubCodex = codexAdapter.subscribe((snapshot) => {
       if (snapshot.status !== "error" || snapshot.sessionUsedPercent > 0) {
         onLivePollSuccess(snapshot);
       }
     });
 
     antigravityAdapter.startPolling();
+    codexAdapter.startPolling();
 
     return () => {
-      unsubscribe();
+      unsubAntigravity();
+      unsubCodex();
       antigravityAdapter.stopPolling();
+      codexAdapter.stopPolling();
     };
   }, [onLivePollSuccess]);
 
@@ -122,6 +132,12 @@ export const App: React.FC = () => {
   const handleVerificationPoll = async (providerId: ProviderId) => {
     if (providerId === "antigravity") {
       const refreshed = await antigravityAdapter.refreshNow();
+      if (refreshed.status !== "error" || refreshed.sessionUsedPercent > 0) {
+        onLivePollSuccess(refreshed);
+        return;
+      }
+    } else if (providerId === "codex") {
+      const refreshed = await codexAdapter.refreshNow();
       if (refreshed.status !== "error" || refreshed.sessionUsedPercent > 0) {
         onLivePollSuccess(refreshed);
         return;
