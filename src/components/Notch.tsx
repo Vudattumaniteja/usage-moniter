@@ -101,6 +101,33 @@ export const Notch: React.FC<NotchProps> = ({
   const activeIndex = currentProvider ? Math.max(0, orderedProviderIds.indexOf(currentProvider)) : 0;
   const popoverYOffset = notchTop + 16 + activeIndex * 92 - 34;
 
+  const getSessionLabel = (provider: string, snap?: UsageSnapshot | null): string => {
+    if (provider === "antigravity") {
+      return "Current session (5h)";
+    }
+    if (!snap?.sessionResetTime) {
+      return "Current session";
+    }
+    const targetMs =
+      typeof snap.sessionResetTime === "number"
+        ? snap.sessionResetTime < 100_000_000_000
+          ? snap.sessionResetTime * 1000
+          : snap.sessionResetTime
+        : Date.parse(snap.sessionResetTime);
+    if (isNaN(targetMs)) {
+      return "Current session";
+    }
+    const diffHours = (targetMs - effectiveNow) / (1000 * 3600);
+    if (diffHours > 24 * 7) {
+      return "Monthly quota";
+    } else if (diffHours > 24) {
+      return "Weekly quota";
+    } else if (diffHours > 4) {
+      return "Current session (5h)";
+    }
+    return "Current session (3h)";
+  };
+
   return (
     <div className="relative w-full h-full min-h-[580px] flex items-center justify-end select-none pointer-events-none pr-0">
       {/* Speech-Bubble Popover Card */}
@@ -170,7 +197,7 @@ export const Notch: React.FC<NotchProps> = ({
           {/* Session Quota Bar */}
           <div className="space-y-1.5 mb-3.5">
             <span className="text-[11px] text-[#8e8e93] font-medium block">
-              {currentMeta.sessionLabel}
+              {getSessionLabel(currentSnapshot.provider, currentSnapshot)}
             </span>
             <div className="w-full h-2 bg-[#1c1c1e] rounded-full overflow-hidden p-0.5">
               <div

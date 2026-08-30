@@ -83,6 +83,9 @@ pub async fn dock_overlay_window(
     );
 
     let _ = window.set_position(PhysicalPosition::new(x, y));
+    let _ = window.show();
+    let _ = window.set_always_on_top(true);
+    let _ = window.set_ignore_cursor_events(false);
 
     Ok(Some(DockPosition {
         x,

@@ -179,6 +179,15 @@ export class AntigravityAdapter implements ProviderAdapter {
     const now = Date.now();
 
     try {
+      if (this.transport.fetchDirect) {
+        const direct = await this.transport.fetchDirect();
+        if (direct) {
+          this.processActive = direct.status !== "error";
+          this.notifySubscribers(direct);
+          return direct;
+        }
+      }
+
       const port = await this.transport.discoverPort();
       if (!port) {
         this.activePort = null;

@@ -31,14 +31,13 @@ describe("App System Integration", () => {
     expect(windowDocking.dockOverlayWindow).toHaveBeenCalled();
   });
 
-  it("renders Variant A by default and displays both provider usage rings", async () => {
+  it("renders Notch and displays both provider usage rings", async () => {
     await act(async () => {
       render(<App />);
     });
 
-    expect(screen.getByText("Organic Curve Notch")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Antigravity Usage: 68%/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Codex \/ ChatGPT: 86%/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Codex \/ ChatGPT: 78%/i })).toBeInTheDocument();
   });
 
   it("triggers on-demand refresh when hovering over a usage ring", async () => {

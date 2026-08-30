@@ -1,44 +1,12 @@
-import React, { useState, useEffect } from "react";
-import { VariantA } from "./prototype/VariantA";
-import { VariantB } from "./prototype/VariantB";
-import { VariantC } from "./prototype/VariantC";
-import {
-  PrototypeSwitcher,
-  VariantOption,
-  BackgroundMode,
-} from "./prototype/PrototypeSwitcher";
-import {
-  DEFAULT_PROTOTYPE_SNAPSHOTS,
-} from "./prototype/mockData";
+import React, { useEffect } from "react";
+import { Notch } from "./components/Notch";
+import { DEFAULT_PROTOTYPE_SNAPSHOTS } from "./prototype/mockData";
 import { ProviderId, UsageSnapshot } from "./types";
 import { useSnapshotCache } from "./hooks/useSnapshotCache";
 import { antigravityAdapter } from "./services/antigravityAdapter";
 import { codexAdapter } from "./services/codexAdapter";
 import { dockOverlayWindow } from "./services/windowDocking";
-import { overlayHitTestManager } from "./services/hitTesting";
 import { defaultNetworkMonitor } from "./services/networkMonitor";
-
-/**
- * Three variants of the Windows right-edge curved notch overlay,
- * switchable via `?variant=A|B|C` or the floating bottom switcher.
- */
-const VARIANTS: VariantOption[] = [
-  {
-    key: "A",
-    name: "Organic Curve Notch",
-    description: "Smooth Bezier edge dock with dual-ring gauges and flyout popovers",
-  },
-  {
-    key: "B",
-    name: "Floating Pill Tab",
-    description: "Ultra-compact edge peek bar with expandable multi-provider HUD",
-  },
-  {
-    key: "C",
-    name: "Cyber Chamfer Blade",
-    description: "Angular telemetry rail with live status inspector & diagnostics",
-  },
-];
 
 export const App: React.FC = () => {
   const {
@@ -48,8 +16,6 @@ export const App: React.FC = () => {
   } = useSnapshotCache({
     initialSnapshots: DEFAULT_PROTOTYPE_SNAPSHOTS,
   });
-
-  const [backgroundMode, setBackgroundMode] = useState<BackgroundMode>("fluid");
 
   // Dock overlay window to right edge of primary display on startup & resize
   useEffect(() => {
@@ -98,62 +64,6 @@ export const App: React.FC = () => {
     };
   }, [onLivePollSuccess]);
 
-  // Read initial variant from URL query param ?variant=
-  const [currentVariant, setCurrentVariant] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const v = params.get("variant");
-      if (v && ["A", "B", "C"].includes(v.toUpperCase())) {
-        return v.toUpperCase();
-      }
-    }
-    return "A";
-  });
-
-  const handleSelectVariant = (key: string) => {
-    const upperKey = key.toUpperCase();
-    setCurrentVariant(upperKey);
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      url.searchParams.set("variant", upperKey);
-      window.history.replaceState({}, "", url.toString());
-    }
-  };
-
-  const handleUpdateSnapshot = (
-    provider: ProviderId,
-    updates: Partial<UsageSnapshot>
-  ) => {
-    const current = snapshots[provider] || {
-      provider,
-      sessionUsedPercent: 0,
-      status: "ok",
-    };
-    const merged: UsageSnapshot = {
-      ...current,
-      ...updates,
-      provider,
-    };
-    // Save to disk and update state
-    onLivePollSuccess(merged);
-  };
-
-  const getBackgroundStyles = () => {
-    switch (backgroundMode) {
-      case "transparent":
-        return "bg-transparent";
-      case "fluid":
-        return "bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-cyan-400/80 via-[#d97706]/70 to-[#0c4a6e]";
-      case "editor":
-        return "bg-[#181824] bg-[radial-gradient(#2d3748_1px,transparent_1px)] [background-size:16px_16px]";
-      case "wallpaper":
-        return "bg-gradient-to-br from-blue-900 via-indigo-950 to-slate-950";
-      case "dark":
-      default:
-        return "bg-slate-950/90";
-    }
-  };
-
   const handleOnDemandRefresh = async (providerId: ProviderId) => {
     if (providerId === "antigravity") {
       const refreshed = await antigravityAdapter.refreshNow();
@@ -195,61 +105,25 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    overlayHitTestManager.handleMouseMove(e.clientX, e.clientY);
-  };
+  const isTauri =
+    typeof window !== "undefined" &&
+    ("__TAURI_INTERNALS__" in window || "__TAURI__" in window);
 
   return (
     <div
-      onMouseMove={handleMouseMove}
-      className={`relative w-screen h-screen overflow-hidden transition-colors duration-300 flex items-center justify-end ${getBackgroundStyles()}`}
+      className={`relative w-screen h-screen overflow-hidden ${
+        isTauri ? "bg-transparent" : "bg-[#0c0d12]"
+      } pointer-events-none flex items-center justify-end`}
     >
-      {/* Visual Canvas context watermark for simulated desktop environments */}
-      {backgroundMode !== "transparent" && (
-        <div className="absolute top-4 left-6 text-slate-500/60 pointer-events-none select-none">
-          <div className="text-xs font-mono font-bold tracking-wider uppercase">
-            Windows Desktop Overlay Simulator
-          </div>
-          <div className="text-[10px] text-slate-600 font-mono">
-            Right Edge Screen Boundary &middot; Tauri Frameless Window
-          </div>
-        </div>
-      )}
-
-      {/* Render active prototype variant */}
       <main className="w-full h-full flex items-center justify-end">
-        {currentVariant === "A" && (
-          <VariantA
-            snapshots={snapshots}
-            syncStates={syncStates}
-            onRefresh={handleOnDemandRefresh}
-            onVerificationPoll={handleVerificationPoll}
-          />
-        )}
-        {currentVariant === "B" && (
-          <VariantB
-            snapshots={snapshots}
-            onVerificationPoll={handleVerificationPoll}
-          />
-        )}
-        {currentVariant === "C" && (
-          <VariantC
-            snapshots={snapshots}
-            onVerificationPoll={handleVerificationPoll}
-          />
-        )}
+        <Notch
+          snapshots={snapshots}
+          syncStates={syncStates}
+          onRefresh={handleOnDemandRefresh}
+          onVerificationPoll={handleVerificationPoll}
+        />
       </main>
-
-      {/* Floating Prototype Switcher & State Controls */}
-      <PrototypeSwitcher
-        variants={VARIANTS}
-        current={currentVariant}
-        onSelectVariant={handleSelectVariant}
-        snapshots={snapshots}
-        onUpdateSnapshot={handleUpdateSnapshot}
-        backgroundMode={backgroundMode}
-        onChangeBackground={setBackgroundMode}
-      />
     </div>
   );
 };
+

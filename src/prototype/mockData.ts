@@ -52,12 +52,12 @@ export const DEFAULT_PROTOTYPE_SNAPSHOTS: Record<ProviderId, UsageSnapshot> = {
   },
   codex: {
     provider: "codex",
-    sessionUsedPercent: 86,
-    sessionResetTime: NOW + 1000 * (60 * 28), // 28m
-    modelUsedPercent: 62,
-    modelResetTime: NOW + 1000 * (60 * 60 * 24 * 2), // 2 days
-    status: "warning",
-    planType: "ChatGPT Plus",
+    sessionUsedPercent: 78,
+    sessionResetTime: NOW + 1000 * (60 * 60 * 24 * 29), // 29 days
+    modelUsedPercent: null,
+    modelResetTime: null,
+    status: "ok",
+    planType: "Go",
     updatedAt: NOW - 5000,
   },
 };

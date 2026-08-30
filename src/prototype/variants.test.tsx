@@ -11,13 +11,13 @@ describe("VariantA: Organic Curvature Notch", () => {
 
     expect(screen.getByText(/Antigravity Usage/i)).toBeInTheDocument();
     expect(screen.getByText("68%")).toBeInTheDocument();
-    expect(screen.getByText("86%")).toBeInTheDocument();
+    expect(screen.getByText("78%")).toBeInTheDocument();
   });
 
   it("reveals popover card when clicking or hovering a ring", () => {
     render(<VariantA snapshots={DEFAULT_PROTOTYPE_SNAPSHOTS} />);
 
-    const codexButton = screen.getByRole("button", { name: /Codex \/ ChatGPT: 86%/i });
+    const codexButton = screen.getByRole("button", { name: /Codex \/ ChatGPT: 78%/i });
     fireEvent.click(codexButton);
 
     expect(screen.getByText(/Codex Usage/i)).toBeInTheDocument();
